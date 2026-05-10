@@ -38,7 +38,8 @@ class Game:
         self.gs: GameState = None
 
         # timing
-        self.ufo_timer = 0
+        self.large_ufo_timer = 0
+        self.small_ufo_timer = 0
         self.thrust_sound_timer = 0
 
         # font for state messages
@@ -83,7 +84,8 @@ class Game:
         self.particles = []
         self.ufo_bullets = []
         self.gs = GameState()
-        self.ufo_timer = 0
+        self.large_ufo_timer = 0
+        self.small_ufo_timer = 0
         self.thrust_sound_timer = 0
         self.state = PLAYING
 
@@ -137,13 +139,19 @@ class Game:
             a.update()
 
         # --- Update UFOs ---
-        self.ufo_timer += 1
-        if self.ufo_timer >= 25 * 60 and len(self.ufos) == 0:
-            self.ufo_timer = 0
-            self.ufos.append(UFO("large"))
-        elif self.ufo_timer >= 10 * 60 and len(self.ufos) == 0:
-            self.ufo_timer = 0
-            self.ufos.append(UFO("small"))
+        self.large_ufo_timer += 1
+        self.small_ufo_timer += 1
+
+        if len(self.ufos) == 0:
+            # Choose which UFO to spawn based on whose timer has elapsed.
+            # Large UFO has priority if both are ready (rare coincidence).
+            if self.large_ufo_timer >= 25 * 60:
+                self.large_ufo_timer = 0
+                self.small_ufo_timer = 0  # also reset so small doesn't immediately pop
+                self.ufos.append(UFO("large"))
+            elif self.small_ufo_timer >= 10 * 60:
+                self.small_ufo_timer = 0
+                self.ufos.append(UFO("small"))
 
         for u in self.ufos:
             u.update(self.ship.x, self.ship.y)
@@ -191,17 +199,6 @@ class Game:
         bullets vs UFOs, ship vs UFOs, UFO bullets vs ship."""
 
         # --- Bullets vs asteroids ---
-        for b in self.bullets[:]:
-            if not b.alive:
-                continue
-            for a in self.asteroids[:]:
-                if not a.alive if hasattr(a, 'alive') else True:
-                    if circles_collide(b.x, b.y, b.radius, a.x, a.y, a.radius):
-                        b.alive = False
-                        self._destroy_asteroid(a)
-                    break
-
-        # Use traditional loops for clarity
         for b in list(self.bullets):
             if not b.alive:
                 self.bullets.remove(b)
