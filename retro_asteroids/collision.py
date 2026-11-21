@@ -5,12 +5,12 @@ import math
 
 def circles_collide(ax: float, ay: float, ar: float,
                     bx: float, by: float, br: float) -> bool:
-    """Distance between centers < sum of radii."""
+    """Distance between centers <= sum of radii (touching counts as a hit)."""
     dx = ax - bx
     dy = ay - by
     dist_sq = dx * dx + dy * dy
     radius_sum = ar + br
-    return dist_sq < radius_sum * radius_sum
+    return dist_sq <= radius_sum * radius_sum
 
 
 def circle_poly_collide(cx: float, cy: float, cr: float,

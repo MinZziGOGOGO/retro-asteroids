@@ -2,7 +2,6 @@
 
 import json
 import os
-from .asteroid import Asteroid
 
 HIGH_SCORE_PATH = os.path.expanduser("~/.retro_asteroids_highscore.json")
 
@@ -11,38 +10,43 @@ UFO_SCORES = {"large": 200, "small": 1000}
 EXTRA_LIFE_SCORE = 10000
 
 
+def load_high_score() -> int:
+    """Read the saved high score, or 0 if there is none yet."""
+    try:
+        with open(HIGH_SCORE_PATH) as f:
+            return int(json.load(f).get("high_score", 0))
+    except (OSError, ValueError, AttributeError):
+        return 0
+
+
 class GameState:
     def __init__(self):
         self.score = 0
         self.lives = 3
         self.level = 1
-        self.high_score = self._load_high_score()
+        self.high_score = load_high_score()
         self._next_extra_life = EXTRA_LIFE_SCORE
-
-    def _load_high_score(self) -> int:
-        try:
-            with open(HIGH_SCORE_PATH) as f:
-                return json.load(f).get("high_score", 0)
-        except (FileNotFoundError, json.JSONDecodeError, KeyError):
-            return 0
 
     def _save_high_score(self):
         try:
-            os.makedirs(os.path.dirname(HIGH_SCORE_PATH), exist_ok=True)
             with open(HIGH_SCORE_PATH, "w") as f:
                 json.dump({"high_score": self.high_score}, f)
         except OSError:
             pass  # non-critical
 
-    def add_score(self, amount: int):
+    def add_score(self, amount: int) -> bool:
+        """Add points. Returns True if an extra life was awarded."""
         self.score += amount
         if self.score > self.high_score:
             self.high_score = self.score
 
         # extra life at every 10000 threshold, and each 10000 after
-        if self.score >= self._next_extra_life:
+        extra_life = False
+        while self.score >= self._next_extra_life:
             self.lives += 1
             self._next_extra_life += EXTRA_LIFE_SCORE
+            extra_life = True
+        return extra_life
 
     def lose_life(self) -> bool:
         """Return True if game over."""

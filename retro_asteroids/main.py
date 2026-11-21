@@ -1,7 +1,6 @@
 """Main entry point — full Asteroids game loop with state machine."""
 
-import sys
-import random
+import math
 import pygame
 from . import ship as ship_mod
 from .ship import Ship, SCREEN_W, SCREEN_H
@@ -10,14 +9,16 @@ from .bullet import Bullet, MAX_BULLETS
 from .ufo import UFO
 from .particles import Particle, spawn_explosion
 from .collision import circles_collide, circle_poly_collide
-from .game_state import GameState
-from .screens import draw_title_screen, draw_game_over_screen, draw_hud
+from .game_state import GameState, load_high_score
+from .screens import draw_title_screen, draw_game_over_screen, draw_hud, draw_pause_overlay
 from . import sound
 
 # State machine
 TITLE = "title"
 PLAYING = "playing"
 GAME_OVER = "game_over"
+
+FIRE_COOLDOWN = 10  # frames between shots while Space is held
 
 
 class Game:
@@ -27,6 +28,8 @@ class Game:
         pygame.display.set_caption("RETRO ASTEROIDS")
         self.clock = pygame.time.Clock()
         self.state = TITLE
+        self.paused = False
+        self.title_high_score = load_high_score()
 
         # game objects
         self.ship: Ship = None
@@ -41,15 +44,13 @@ class Game:
         self.large_ufo_timer = 0
         self.small_ufo_timer = 0
         self.thrust_sound_timer = 0
-
-        # font for state messages
-        self._font = pygame.font.Font(None, 30)
+        self.fire_cooldown = 0
 
     def run(self):
         """Main loop."""
         running = True
         while running:
-            dt = self.clock.tick(60)
+            self.clock.tick(60)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -67,13 +68,10 @@ class Game:
             if event.key == pygame.K_ESCAPE:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
 
-            if self.state == TITLE:
-                if event.key == pygame.K_RETURN:
-                    self._start_game()
-
-            elif self.state == GAME_OVER:
-                if event.key == pygame.K_RETURN:
-                    self._start_game()
+            if self.state in (TITLE, GAME_OVER) and event.key == pygame.K_RETURN:
+                self._start_game()
+            elif self.state == PLAYING and event.key == pygame.K_p:
+                self.paused = not self.paused
 
     def _start_game(self):
         """Initialize or reset game state for a new game."""
@@ -87,6 +85,8 @@ class Game:
         self.large_ufo_timer = 0
         self.small_ufo_timer = 0
         self.thrust_sound_timer = 0
+        self.fire_cooldown = 0
+        self.paused = False
         self.state = PLAYING
 
         # Spawn initial asteroids away from ship
@@ -105,7 +105,7 @@ class Game:
             self.asteroids.append(a)
 
     def _update(self):
-        if self.state != PLAYING:
+        if self.state != PLAYING or self.paused:
             return
 
         keys = pygame.key.get_pressed()
@@ -122,8 +122,10 @@ class Game:
 
         self.ship.update()
 
-        # fire
-        if keys[pygame.K_SPACE]:
+        # fire (rate-limited so holding Space doesn't empty the clip instantly)
+        if self.fire_cooldown > 0:
+            self.fire_cooldown -= 1
+        if keys[pygame.K_SPACE] and self.fire_cooldown == 0:
             self._fire_bullet()
 
         # --- Update bullets ---
@@ -185,9 +187,9 @@ class Game:
         """Fire a bullet from the ship if under max count."""
         if len(self.bullets) >= MAX_BULLETS:
             return
+        self.fire_cooldown = FIRE_COOLDOWN
         nose_x = self.ship.x
         nose_y = self.ship.y
-        import math
         rad = math.radians(self.ship.angle)
         nose_x += math.sin(rad) * ship_mod.SHIP_SCALE
         nose_y -= math.cos(rad) * ship_mod.SHIP_SCALE
@@ -220,7 +222,7 @@ class Game:
                 if circles_collide(b.x, b.y, b.radius, u.x, u.y, u.radius):
                     b.alive = False
                     u.alive = False
-                    self.gs.add_score(u.score)
+                    self._add_score(u.score)
                     self.particles.extend(spawn_explosion(u.x, u.y, 20, (0.5, 2.5), 25))
                     sound.play_explosion()
                     break
@@ -260,7 +262,7 @@ class Game:
 
     def _destroy_asteroid(self, a: Asteroid):
         """Destroy an asteroid: score, particles, split children."""
-        self.gs.add_score(a.score)
+        self._add_score(a.score)
         self.particles.extend(spawn_explosion(a.x, a.y, 20, (0.5, 2.5), 25))
         sound.play_explosion()
 
@@ -270,6 +272,10 @@ class Game:
         if a in self.asteroids:
             self.asteroids.remove(a)
 
+    def _add_score(self, amount: int):
+        if self.gs.add_score(amount):
+            sound.play_extra_life()
+
     def _kill_ship(self):
         """Ship destroyed: lose life, explosion, respawn or game over."""
         self.particles.extend(spawn_explosion(self.ship.x, self.ship.y, 25, (1.0, 4.0), 35))
@@ -278,6 +284,7 @@ class Game:
         game_over = self.gs.lose_life()
         if game_over:
             self.gs.save_high_score()
+            self.title_high_score = self.gs.high_score
             self.state = GAME_OVER
         else:
             self.ship.respawn()
@@ -287,13 +294,15 @@ class Game:
         self.screen.fill((0, 0, 0))
 
         if self.state == TITLE:
-            draw_title_screen(self.screen)
+            draw_title_screen(self.screen, self.title_high_score)
         elif self.state == GAME_OVER:
             draw_game_over_screen(self.screen, self.gs.score, self.gs.high_score)
         elif self.state == PLAYING:
             self._draw_gameplay()
             draw_hud(self.screen, self.gs.score, self.gs.lives, self.gs.level,
                      self.gs.high_score)
+            if self.paused:
+                draw_pause_overlay(self.screen)
 
     def _draw_gameplay(self):
         """Draw all game objects."""

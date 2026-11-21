@@ -1,30 +1,7 @@
 """Tests for game state — scoring, lives, level progression."""
 
-import json
-import os
-import tempfile
-from retro_asteroids.game_state import GameState, EXTRA_LIFE_SCORE
-
-# Backup original path
-_original_path = None
-
-
-def setup_module():
-    global _original_path
-    from retro_asteroids import game_state
-    _original_path = game_state.HIGH_SCORE_PATH
-    game_state.HIGH_SCORE_PATH = os.path.join(tempfile.gettempdir(), "test_asteroids_hs.json")
-
-
-def teardown_module():
-    from retro_asteroids import game_state
-    game_state.HIGH_SCORE_PATH = _original_path
-    # Cleanup
-    try:
-        os.remove(os.path.join(tempfile.gettempdir(), "test_asteroids_hs.json"))
-    except OSError:
-        pass
-
+from retro_asteroids import game_state
+from retro_asteroids.game_state import GameState, load_high_score
 
 def test_initial_state():
     gs = GameState()
@@ -88,13 +65,6 @@ def test_level_progression():
 
 
 def test_high_score_persistence():
-    # Clear any existing
-    from retro_asteroids import game_state
-    try:
-        os.remove(game_state.HIGH_SCORE_PATH)
-    except OSError:
-        pass
-
     gs = GameState()
     gs.add_score(5000)
     gs.save_high_score()
@@ -102,3 +72,16 @@ def test_high_score_persistence():
     # Load again
     gs2 = GameState()
     assert gs2.high_score == 5000
+
+
+def test_add_score_reports_extra_life():
+    gs = GameState()
+    assert gs.add_score(9990) is False
+    assert gs.add_score(20) is True
+    assert gs.add_score(20) is False
+
+
+def test_load_high_score_handles_corrupt_file():
+    with open(game_state.HIGH_SCORE_PATH, "w") as f:
+        f.write("not json")
+    assert load_high_score() == 0

@@ -53,10 +53,10 @@ class Ship:
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
 
-        tip_y = SHIP_SCALE * 0.6 + SHIP_SCALE * 0.5  # bottom of ship
-        left = (SHIP_SCALE * 0.35, tip_y)
-        right = (-SHIP_SCALE * 0.35, tip_y)
-        bottom = (0, tip_y + SHIP_SCALE * 0.8)
+        base_y = SHIP_SCALE * 0.6  # rear edge of the ship
+        left = (SHIP_SCALE * 0.35, base_y)
+        right = (-SHIP_SCALE * 0.35, base_y)
+        bottom = (0, base_y + SHIP_SCALE * 0.8)
 
         pts = []
         for lx, ly in [left, bottom, right]:

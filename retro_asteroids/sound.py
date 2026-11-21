@@ -1,19 +1,21 @@
 """Sound generation — retro sounds via pygame.sndarray with fallback."""
 
-import math
+import random
 import struct
 import pygame
 
 _SOUND_ENABLED = True
-_sound_cache: dict[str, pygame.mixer.Sound] = {}
+_sound_cache: dict = {}
 
 try:
     pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
-except pygame.error:
+except (pygame.error, NotImplementedError):
+    # No audio device, or a pygame build without the mixer module:
+    # the game still runs, just silently.
     _SOUND_ENABLED = False
 
 
-def _generate_square_wave(freq: float, duration: float, volume: float = 0.3) -> pygame.mixer.Sound:
+def _generate_square_wave(freq: float, duration: float, volume: float = 0.3):
     """Generate a square wave sound and return a pygame Sound object."""
     sample_rate = 22050
     num_samples = int(sample_rate * duration)
@@ -30,9 +32,8 @@ def _generate_square_wave(freq: float, duration: float, volume: float = 0.3) -> 
     return pygame.mixer.Sound(buffer=raw)
 
 
-def _generate_noise(duration: float, volume: float = 0.3) -> pygame.mixer.Sound:
+def _generate_noise(duration: float, volume: float = 0.3):
     """Generate white noise."""
-    import random
     sample_rate = 22050
     num_samples = int(sample_rate * duration)
     samples = []
@@ -45,7 +46,7 @@ def _generate_noise(duration: float, volume: float = 0.3) -> pygame.mixer.Sound:
     return pygame.mixer.Sound(buffer=raw)
 
 
-def _get_or_create(key: str, factory) -> pygame.mixer.Sound:
+def _get_or_create(key: str, factory):
     if not _SOUND_ENABLED:
         return None
     if key not in _sound_cache:
@@ -73,13 +74,6 @@ def play_thrust():
 def play_explosion():
     """Explosion noise."""
     s = _get_or_create("explosion", lambda: _generate_noise(0.3, 0.25))
-    if s:
-        s.play()
-
-
-def play_ufo():
-    """UFO hum or warp sound."""
-    s = _get_or_create("ufo", lambda: _generate_square_wave(200, 0.2, 0.1))
     if s:
         s.play()
 

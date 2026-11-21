@@ -1,8 +1,7 @@
 """Screens — title, game over, HUD rendering."""
 
-import math
 import pygame
-from .ship import SCREEN_W, SCREEN_H, SHIP_SHAPE
+from .ship import SCREEN_W, SCREEN_H
 
 
 # Font cache
@@ -15,7 +14,7 @@ def _get_font(size: int) -> pygame.font.Font:
     return _fonts[size]
 
 
-def draw_title_screen(surface: pygame.Surface):
+def draw_title_screen(surface: pygame.Surface, high_score: int = 0):
     """Draw the title screen with ASTEROIDS text and instructions."""
     surface.fill((0, 0, 0))
 
@@ -31,7 +30,7 @@ def draw_title_screen(surface: pygame.Surface):
         "PRESS ENTER TO START",
         "",
         "ARROW KEYS - ROTATE / THRUST",
-        "SPACE - FIRE",
+        "SPACE - FIRE      P - PAUSE",
         "",
         "BEWARE OF ASTEROIDS AND UFOs",
     ]
@@ -40,20 +39,10 @@ def draw_title_screen(surface: pygame.Surface):
         rect = surf.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2 + i * 30))
         surface.blit(surf, rect)
 
-    # High score
-    try:
-        import json, os
-        path = os.path.expanduser("~/.retro_asteroids_highscore.json")
-        hs = 0
-        if os.path.exists(path):
-            with open(path) as f:
-                hs = json.load(f).get("high_score", 0)
-        if hs > 0:
-            hs_surf = small_font.render(f"HIGH SCORE: {hs}", True, (150, 150, 255))
-            hs_rect = hs_surf.get_rect(center=(SCREEN_W // 2, SCREEN_H - 60))
-            surface.blit(hs_surf, hs_rect)
-    except Exception:
-        pass
+    if high_score > 0:
+        hs_surf = small_font.render(f"HIGH SCORE: {high_score}", True, (150, 150, 255))
+        hs_rect = hs_surf.get_rect(center=(SCREEN_W // 2, SCREEN_H - 60))
+        surface.blit(hs_surf, hs_rect)
 
 
 def draw_game_over_screen(surface: pygame.Surface, score: int, high_score: int):
@@ -81,6 +70,13 @@ def draw_game_over_screen(surface: pygame.Surface, score: int, high_score: int):
     surface.blit(restart, rr)
 
 
+def draw_pause_overlay(surface: pygame.Surface):
+    """Draw a centered PAUSED label over the frozen game."""
+    font = _get_font(48)
+    text = font.render("PAUSED", True, (255, 255, 255))
+    surface.blit(text, text.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2)))
+
+
 def draw_hud(surface: pygame.Surface, score: int, lives: int, level: int,
              high_score: int):
     """Draw HUD overlay: score top-left, high score top-center, lives top-right."""
@@ -102,12 +98,11 @@ def draw_hud(surface: pygame.Surface, score: int, lives: int, level: int,
 
     # Lives as ship icons top-right
     for i in range(lives):
-        _draw_ship_icon(surface, SCREEN_W - 30 - i * 30, 25, font)
+        _draw_ship_icon(surface, SCREEN_W - 30 - i * 30, 25)
 
 
-def _draw_ship_icon(surface: pygame.Surface, x: int, y: int,
-                    font: pygame.font.Font):
-    """Draw a tiny ship icon using unicode triangle or line art."""
+def _draw_ship_icon(surface: pygame.Surface, x: int, y: int):
+    """Draw a tiny outlined ship used as a life counter."""
     pts = [
         (x, y - 8),
         (x - 6, y + 6),

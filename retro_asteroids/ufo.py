@@ -107,10 +107,15 @@ class UFO:
         ox, oy = int(self.x), int(self.y)
         r = self.radius
 
-        # top dome
+        # top dome (pygame arcs run counter-clockwise, so 0 → π is the upper half)
         pygame.draw.arc(surface, color,
-                        (ox - r, oy - r * 1.2, r * 2, r * 2),
-                        math.pi, 0, 1)
+                        (ox - r, oy - r * 0.7, r * 2, r * 2),
+                        0, math.pi, 1)
+        # hull
+        pygame.draw.polygon(surface, color, [
+            (ox - r * 1.2, oy + r * 0.3), (ox - r * 0.6, oy + r * 0.8),
+            (ox + r * 0.6, oy + r * 0.8), (ox + r * 1.2, oy + r * 0.3),
+        ], 1)
         # bottom line
         pygame.draw.line(surface, color,
                          (ox - r * 1.2, oy + r * 0.3),
@@ -118,5 +123,5 @@ class UFO:
         # antenna if small
         if self.size == "small":
             pygame.draw.line(surface, color,
-                             (ox, oy - r * 1.2),
-                             (ox, oy - r * 1.7), 1)
+                             (ox, oy - r * 0.7),
+                             (ox, oy - r * 1.2), 1)
